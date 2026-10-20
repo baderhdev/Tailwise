@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+.pytest_cache/
+# Yahoo Finance data is not redistributed; run.py --refresh downloads it
+data/raw/yf_*.csv
+data/processed/
