@@ -113,8 +113,10 @@ correction (as a vendor would make), not a model input.
 
 Full-sample descriptive statistics (`results/phase1/summary_stats.csv`), not used by any model.
 
-- **Volatility:** annualised volatility ranges from 17% (Aramco) to 35% (Ma'aden). The equal-weight
-  (EW) portfolio runs at 16%, well below any single stock: diversification does real work here.
+- **Volatility:** annualised volatility ranges from 16.5% (Aramco) to 34.6% (Ma'aden). The
+  equal-weight (EW) portfolio runs at 15.3%, well below any single stock: diversification does
+  real work here. Annualised with the panel's 240 observations per calendar year (see Known
+  Limitations 3 and 18).
 - **Correlation:** mean pairwise correlation is 0.32. Banks form the tightest block (up to 0.61),
   followed by the petrochemicals. Healthcare, insurance, and Ma'aden are the least connected.
   The 120-day average correlation swung from 0.60 (2020) to 0.14 (late 2021), so a single
@@ -123,8 +125,8 @@ Full-sample descriptive statistics (`results/phase1/summary_stats.csv`), not use
   excess kurtosis 11.6 and skew −0.87: moves beyond 3 standard deviations happen on 1.16% of
   days versus 0.27% under a normal, and the large ones are mostly on the downside.
   This is a first warning for any normal (parametric) VaR.
-- **Volatility clustering:** 60-day EW volatility ranged from about 8% to 42% (peak May 2020).
-- **TASI** (price index, same dates): volatility 15.4%, skew −1.17, excess kurtosis 12.6, moves
+- **Volatility clustering:** 60-day EW volatility ranged from about 7% to 41% (peak May 2020).
+- **TASI** (price index, same dates): volatility 15.1%, skew −1.17, excess kurtosis 12.6, moves
   beyond 3 standard deviations on 1.28% of days. The market index is as fat-tailed as the
   portfolio.
 
@@ -422,24 +424,25 @@ Full results: `results/phase6/performance.csv`.
 
 | Strategy (15 bps) | Return p.a. | Volatility p.a. | Max drawdown | Monthly turnover | Effective no. of stocks |
 |---|---|---|---|---|---|
-| equal_weight | 7.8% | 13.8% | 20.3% | 5% | 24 |
-| min_var_sample_250 | 7.2% | 11.6% | 18.8% | 20% | 5.1 |
-| min_var_garch_ccc | 4.8% | 11.6% | 23.9% | 63% | 5.6 |
+| equal_weight | 7.5% | 13.5% | 20.3% | 5% | 24 |
+| min_var_sample_250 | 6.8% | 11.3% | 18.8% | 20% | 5.1 |
+| min_var_garch_ccc | 4.6% | 11.3% | 23.9% | 63% | 5.6 |
 
-Volatility vs equal-weight: −2.2 points for both, 95% CI about (−2.8, −1.4): **significant**.
-Return vs equal-weight: −0.6 points for sample (CI −7.6 to +5.5) and −3.0 for GARCH (CI −10.7 to
-+3.5): **not significant**.
+Returns and volatilities are annualised with the observations per calendar year in the test
+period (about 239). Volatility vs equal-weight: −2.1 points for both, 95% CI about (−2.8, −1.4):
+**significant**. Return vs equal-weight: −0.6 points for sample (CI −7.2 to +5.3) and −2.9 for
+GARCH (CI −10.2 to +3.3): **not significant**.
 
 ![Min-variance vs equal-weight](results/phase6/cumulative.png)
 
 **What this says**
 
-- **Minimum variance does what it promises:** about 2.2 points lower volatility than
+- **Minimum variance does what it promises:** about 2.1 points lower volatility than
   equal-weight, a reduction the bootstrap says is real.
 - **The better covariance forecast does not make a better portfolio.** GARCH-CCC gives exactly
   the same volatility reduction as the plain sample covariance, but trades three times as much
   (63% vs 20% of the portfolio a month) because its volatility forecasts move every month. After
-  costs it returns 2.4 points a year less than the sample version and has the deepest drawdown
+  costs it returns 2.3 points a year less than the sample version and has the deepest drawdown
   of the three (23.9%, April–December 2022). Phase 2's small, insignificant forecasting edge does
   not survive contact with an optimiser and costs.
 - **The portfolios are concentrated.** Half of the 24 stocks get zero weight; on average the
@@ -503,10 +506,11 @@ Kept up to date as the project goes.
 17. **Price index vs total return.** TASI excludes dividends, so all benchmark comparisons use
     price returns. Saudi dividend yields are high (about 3.4 points a year for the equal-weight
     portfolio here), so comparing a total-return portfolio with TASI would overstate it.
-18. **Inconsistent annualisation.** Phases 1 and 6 annualise with 250 observations a year, but
-    the panel has about 240 because of the sessions Yahoo lacks (limitation 3); this overstates
-    annualised returns there by roughly 4% of their value (e.g. 7.8% would be about 7.5%) and
-    volatilities by about 2%. The benchmark section annualises by calendar time and is not
-    affected. Left as is so that adding TASI changed no earlier result.
+18. **Annualisation.** Daily statistics are annualised with the number of observations per
+    calendar year (about 240), not the usual 250, because returns that span sessions Yahoo lacks
+    still cover real time (limitation 3). An earlier version used 250 and overstated Phase 1 and 6
+    annualised figures by about 4% (returns) and 2% (volatility). The axis of the Phase 2 chart
+    of forecast vs realised volatility still uses 250; it is display only and no reported number
+    depends on it.
 19. **One TASI source.** The TASI file is a single static export from the Saudi Exchange. It passes
     the schema and range checks above, but was not cross-checked against a second source.

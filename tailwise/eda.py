@@ -9,10 +9,9 @@ import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
 from scipy import stats
 
-from .data import ROOT, UNIVERSE, load_returns, load_tasi_returns
+from .data import ROOT, START, UNIVERSE, load_returns, load_tasi_returns
 
 OUT = ROOT / "results" / "phase1"
-DAYS = 250  # annualisation convention; Tadawul has ~245-250 sessions a year
 BLUE, ORANGE, INK2, MUTED = "#2a78d6", "#eb6834", "#52514e", "#898781"
 SEQ = LinearSegmentedColormap.from_list("blues", ["#f0efec", "#86b6ef", "#2a78d6", "#0d366b"])
 
@@ -24,12 +23,18 @@ plt.rcParams.update({
 })
 
 
-def summary(r):
+def per_year(dates, start):
+    """Return observations per calendar year, `start` being the price date before the first return.
+    About 240 here, not 250: a return that spans sessions Yahoo lacks still covers real time."""
+    return len(dates) / ((dates[-1] - pd.Timestamp(start)).days / 365.25)
+
+
+def summary(r, ppy):
     """Per-series annualised vol/mean, skew, excess kurtosis, tail frequency vs a normal."""
     z = (r - r.mean()) / r.std()
     return pd.DataFrame({
-        "ann_vol": r.std() * np.sqrt(DAYS),
-        "ann_mean": r.mean() * DAYS,
+        "ann_vol": r.std() * np.sqrt(ppy),
+        "ann_mean": r.mean() * ppy,
         "skew": r.skew(),
         "excess_kurt": r.kurt(),
         "min": r.min(),
@@ -47,7 +52,8 @@ def run():
     tasi = load_tasi_returns()
     # align TASI to the return dates; an extra all-NaN row would change the tail-frequency denominators
     table = pd.concat([rets, ew] + ([tasi.loc[rets.index].rename("TASI")] if tasi is not None else []), axis=1)
-    s = summary(table)
+    ppy = per_year(rets.index, START)
+    s = summary(table, ppy)
     s.insert(0, "name", [UNIVERSE.get(c, c) for c in s.index])
     s.to_csv(OUT / "summary_stats.csv", float_format="%.5f")
 
@@ -69,7 +75,7 @@ def run():
     plt.close(fig)
 
     # rolling risk: EW volatility and average pairwise correlation, two panels sharing time (no dual axis)
-    roll_vol = ew.rolling(60).std() * np.sqrt(DAYS)
+    roll_vol = ew.rolling(60).std() * np.sqrt(ppy)
     n = rets.shape[1]
     roll_corr = rets.rolling(120).corr().groupby(level=0).apply(lambda m: (m.values.sum() - n) / (n * n - n))
     fig, (a1, a2) = plt.subplots(2, 1, figsize=(9, 5.5), sharex=True)

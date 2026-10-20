@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from tailwise import allocation as al
@@ -41,3 +42,9 @@ def test_simulate_costs_and_drift():
     drifted = np.array([0.55, 0.5]) / 1.05
     assert to[1] == pytest.approx(np.abs(np.array([0.5, 0.5]) - drifted).sum())
     assert r[5] == pytest.approx(0.05)
+
+
+def test_per_year_counts_observations_per_calendar_year():
+    from tailwise.eda import per_year
+    dates = pd.date_range("2021-01-04", "2021-12-31", periods=240)
+    assert per_year(dates, "2020-12-31") == pytest.approx(240, rel=0.01)

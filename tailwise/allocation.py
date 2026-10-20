@@ -12,7 +12,7 @@ from scipy.optimize import minimize
 
 from .covariance import H, METHODS, SEED, WINDOW
 from .data import ROOT, load_returns
-from .eda import BLUE, DAYS, ORANGE
+from .eda import BLUE, ORANGE, per_year
 
 OUT = ROOT / "results" / "phase6"
 COST_BPS = 15  # one-way, per unit traded: roughly Tadawul commission; ignores spread and impact
@@ -77,12 +77,12 @@ def block_bootstrap_diff(a, b, stat, block=21, reps=2000, seed=SEED):
     return np.percentile(out, [2.5, 97.5])
 
 
-def ann_vol(r):
-    return r.std() * np.sqrt(DAYS)
+def ann_vol(r, ppy):
+    return r.std() * np.sqrt(ppy)
 
 
-def ann_ret(r):
-    return np.prod(1 + r) ** (DAYS / len(r)) - 1
+def ann_ret(r, ppy):
+    return np.prod(1 + r) ** (ppy / len(r)) - 1
 
 
 def run():
@@ -92,6 +92,8 @@ def run():
     targets = target_weights(x)
     first = targets["equal_weight"][0][0]
     dates = rets.index[first:]
+    ppy = per_year(dates, rets.index[first - 1])
+    vol, ret = (lambda r: ann_vol(r, ppy)), (lambda r: ann_ret(r, ppy))
     wts = pd.DataFrame({(s, rets.index[i].date()): w for s, tw in targets.items() for i, w in tw}, index=rets.columns).T
     wts.to_csv(OUT / "weights.csv", float_format="%.4f")
 
@@ -101,14 +103,14 @@ def run():
         ew = sims["equal_weight"][0]
         for s, (r, to) in sims.items():
             w = np.array([w for _, w in targets[s]])
-            row = dict(strategy=s, cost_bps=c, ann_return=ann_ret(r), ann_vol=ann_vol(r), max_drawdown=max_drawdown(r),
+            row = dict(strategy=s, cost_bps=c, ann_return=ret(r), ann_vol=vol(r), max_drawdown=max_drawdown(r),
                        avg_turnover=to[1:].mean(), avg_max_weight=w.max(axis=1).mean(),
                        avg_effective_n=(1 / (w ** 2).sum(axis=1)).mean())
             if s != "equal_weight":
-                row["vol_diff_vs_ew"] = row["ann_vol"] - ann_vol(ew)
-                row["vol_diff_ci_low"], row["vol_diff_ci_high"] = block_bootstrap_diff(r, ew, ann_vol)
-                row["ret_diff_vs_ew"] = row["ann_return"] - ann_ret(ew)
-                row["ret_diff_ci_low"], row["ret_diff_ci_high"] = block_bootstrap_diff(r, ew, ann_ret)
+                row["vol_diff_vs_ew"] = row["ann_vol"] - vol(ew)
+                row["vol_diff_ci_low"], row["vol_diff_ci_high"] = block_bootstrap_diff(r, ew, vol)
+                row["ret_diff_vs_ew"] = row["ann_return"] - ret(ew)
+                row["ret_diff_ci_low"], row["ret_diff_ci_high"] = block_bootstrap_diff(r, ew, ret)
             rows.append(row)
             if c == COST_BPS:
                 daily[s] = r

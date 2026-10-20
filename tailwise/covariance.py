@@ -12,12 +12,13 @@ from arch import arch_model
 from scipy import stats
 
 from .data import ROOT, load_returns
-from .eda import DAYS  # also applies the shared plot style
+from . import eda  # noqa: F401  applies the shared plot style
 
 OUT = ROOT / "results" / "phase2"
 WINDOW = 250  # rolling estimation window, about one year
 H = 21  # forecast horizon and step, about one month; origins do not overlap
 SEED = 2026
+DAYS = 250  # chart axis only (forecast vs realised, annualised); see README known limitations
 N_RANDOM = 5
 COLORS = {"sample_250": "#2a78d6", "sample_expanding": "#eb6834", "ledoit_wolf_250": "#1baf7a", "garch_ccc": "#6250d6"}
 
