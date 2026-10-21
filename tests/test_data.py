@@ -102,3 +102,13 @@ def test_align_refuses_tasi_missing_many_stock_dates():
     tasi = pd.Series(1.0, index=prices.index[:90])
     with pytest.raises(ValueError):
         data.align_calendars(prices, tasi)
+
+
+def test_panel_stops_at_end_date(monkeypatch):
+    # a refresh that brings dates past END must reproduce the fixed sample, not extend it
+    monkeypatch.setattr(data, "WARMUP_START", "2020-01-01")
+    monkeypatch.setattr(data, "START", "2020-01-01")
+    monkeypatch.setattr(data, "END", "2020-01-10")
+    a = frame([100.0] * 10, [1] * 10)  # Jan 6 to Jan 17
+    prices, rets, log = data.build_panel({"A": a})
+    assert prices.index[-1] == pd.Timestamp("2020-01-10") and len(prices) == 5

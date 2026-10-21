@@ -9,6 +9,7 @@ RAW = ROOT / "data" / "raw"
 PROC = ROOT / "data" / "processed"
 
 START = "2019-12-11"  # Saudi Aramco's first trading day
+END = "2026-10-20"  # last session in the TASI file: a later --refresh reproduces this sample, not a longer one
 WARMUP_START = "2019-06-01"  # extra history so the trailing-volume median exists at START
 LIMIT = 0.10  # Tadawul daily price limit
 # Saudi Exchange official TASI daily history: a price index (no dividends reinvested)
@@ -87,8 +88,8 @@ def build_panel(raw, tasi=None):
         df = df.loc[WARMUP_START:]
         df, l1 = drop_filler(df, t)
         df, l2 = drop_spikes(df, t)
-        log += l1 + l2 + flag_stale(df.loc[START:], t)
-        clean[t] = df.loc[START:, "Adj Close"]
+        log += l1 + l2 + flag_stale(df.loc[START:END], t)
+        clean[t] = df.loc[START:END, "Adj Close"]
     wide = pd.DataFrame(clean).sort_index()
     incomplete = wide.isna().any(axis=1)
     for d in wide.index[incomplete]:
@@ -107,7 +108,8 @@ def build_panel(raw, tasi=None):
         for d, x in returns[t][returns[t].abs() > LIMIT].items():
             log.append((t, d, "flag_over_limit", f"kept, ret={x:+.3f}"))
     log = pd.DataFrame(log, columns=["ticker", "date", "action", "detail"])
-    log = log[log["date"] >= pd.Timestamp(START)].sort_values(["date", "ticker"]).reset_index(drop=True)
+    log = log[log["date"].between(pd.Timestamp(START), pd.Timestamp(END))]
+    log = log.sort_values(["date", "ticker"]).reset_index(drop=True)
     return prices, returns, log
 
 
@@ -155,6 +157,7 @@ def align_calendars(prices, tasi, max_drop=0.02):
 def run(refresh=False):
     PROC.mkdir(parents=True, exist_ok=True)
     raw = download(refresh=refresh)
+    download(["BZ=F"], refresh=refresh)  # Brent for Phase 5, refreshed together with the stocks
     tasi_full = load_tasi() if TASI_FILE.exists() else None
     prices, returns, log = build_panel(raw, tasi_full)
     # price-return panel (split-adjusted Close, no dividends), the like-for-like comparison with TASI

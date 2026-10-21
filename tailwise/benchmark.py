@@ -11,7 +11,7 @@ import pandas as pd
 
 from .covariance import test_portfolios
 from .data import ROOT, START, load_price_returns, load_returns, load_tasi_returns
-from .eda import BLUE, ORANGE
+from .eda import BLUE, ORANGE, per_year
 
 OUT = ROOT / "results" / "benchmark"
 BETA_WINDOW = 250
@@ -30,11 +30,9 @@ def run():
         return None
     tasi = tasi.loc[rp.index]
     ports = pd.DataFrame({p: rp.values @ w for p, w in test_portfolios(rp.shape[1]).items()}, index=rp.index)
-    # annualise by calendar time: returns that span sessions Yahoo lacks still cover real time
-    years = (rp.index[-1] - pd.Timestamp(START)).days / 365.25
-    per_year = len(rp) / years
-    ann_ret = lambda r: (1 + r).prod() ** (1 / years) - 1
-    ann_vol = lambda r: r.std() * np.sqrt(per_year)
+    ppy = per_year(rp.index, START)
+    ann_ret = lambda r: (1 + r).prod() ** (ppy / len(r)) - 1
+    ann_vol = lambda r: r.std() * np.sqrt(ppy)
 
     rows, betas = [], {}
     for p, r in ports.items():
@@ -66,6 +64,6 @@ def run():
     plt.close(fig)
 
     pd.set_option("display.width", 250)
-    print(f"years {years:.2f}, observations per year {per_year:.1f}")
+    print(f"observations per year {ppy:.1f}")
     print(res.round(4).to_string(index=False))
     return res

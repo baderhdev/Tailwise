@@ -45,7 +45,8 @@ python -m venv .venv
 ```
 
 Yahoo Finance data is not redistributed in this repository, so a fresh `--refresh` download
-may differ slightly from the snapshot behind the committed results (Yahoo revises history).
+may differ slightly from the snapshot behind the committed results (Yahoo revises history), but it
+covers the same dates. `--refresh` also re-downloads the Brent series used in Phase 5.
 The TASI file is included. Everything is deterministic given the same raw data: two full reruns
 reproduce every output file byte for byte.
 
@@ -64,7 +65,9 @@ reproduce every output file byte for byte.
   passes range checks (5,416 to 13,820) and its largest daily move is −8.7% on 2020-03-08.
   Before 29 June 2013 the exchange traded Saturday to Wednesday; those sessions are real.
 - **Oil:** Brent front-month futures from Yahoo (`BZ=F`), Phase 5 only.
-- **Sample:** 2019-12-11 (Saudi Aramco's listing) to 2026-10-20: 1,646 stock-panel dates.
+- **Sample:** 2019-12-11 (Saudi Aramco's listing) to 2026-10-20, the last session in the TASI file:
+  1,646 stock-panel dates. The end date is fixed in `tailwise/data.py` (`END`), so a later
+  `--refresh` reproduces this sample instead of extending it past the benchmark.
   TASI's history before 2019-12-11 is used only for market regimes (Phase 4) and the stress
   replay of 2014–16 (Phase 5), always walk-forward.
 
