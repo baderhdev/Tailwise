@@ -7,20 +7,28 @@ This is a student portfolio project. Results are reported as they come out, incl
 
 ## Summary of findings
 
-- **Simple baselines are hard to beat.** GARCH-CCC ranks first for covariance forecasts but its
-  edge over the plain 250-day sample covariance is not statistically significant; Ledoit-Wolf
-  shrinkage makes no practical difference; and a minimum-variance portfolio built from GARCH does
-  *worse* after costs than one built from the sample covariance.
-- **Normal VaR fails** (too many breaches, ES too small). Fat-tailed and historical VaR get the
-  breach count roughly right overall but fail in turbulent markets. Only GARCH-filtered historical
-  simulation passes every coverage test, and it is too conservative at 99% in calm markets.
-- **Market regimes from TASI** show the failure clearly: in TASI-turbulent periods the three
-  window-based VaR models are breached two to five times as often as they should be.
-- **TASI's longer history puts the sample in context.** March 2020 was TASI's worst 21-session
-  window since 2013, but August 2015 came close; the 2014–16 oil-price decline took TASI down 51%
-  over two years, a stress the stock sample never contains.
-- **The equal-weight portfolio beat TASI** by 1.8 points a year in price terms, with beta 0.97.
-  That is most likely survivorship and equal-weighting, not skill (see Known Limitations).
+Sample: 19 Tadawul stocks, January 2014 to October 2026, with TASI as the benchmark.
+
+- **Simple baselines are hard to beat.** GARCH-CCC ranks first for covariance forecasts on all six
+  test portfolios, but its edge over the plain 250-day sample covariance is not statistically
+  significant (p = 0.05 to 0.44). Ledoit-Wolf shrinkage makes no practical difference. A
+  minimum-variance portfolio built from GARCH does *worse* after costs than one built from the
+  sample covariance, because it trades three times as much.
+- **Normal VaR fails** (too many breaches, Expected Shortfall too small). Historical and
+  Student-t VaR get the overall breach rate roughly right but their breaches cluster, and they
+  fail every conditional-coverage test. **Only GARCH-filtered historical simulation (FHS) passes
+  every coverage test on every portfolio**, with 28 breaches at 99% where 28.4 were expected.
+- **Market regimes from TASI** show where the window-based models fail: in turbulent markets they
+  are breached about twice as often as they should be, and in calm markets too rarely. FHS holds
+  in both.
+- **March 2020 and the 2015–16 shocks are tested out of sample.** In the crash weeks of
+  February–March 2020, FHS had 2 breaches of its 99% VaR; the other three models had 5 each.
+- **Stress:** the 2014–16 oil-price decline took TASI down 51% and the equal-weight portfolio 41%
+  (price terms). No model's one-day 99% VaR, scaled up to a multi-week horizon, was a safe bound
+  for the worst episodes.
+- **The equal-weight portfolio beat TASI by 5.2 points a year** in price terms, with beta 0.97.
+  This is most likely survivorship, equal-weighting, and the absence of Aramco, not skill (see
+  Known Limitations).
 
 ## Status
 
@@ -44,57 +52,65 @@ python -m venv .venv
 .venv/Scripts/python -m pytest
 ```
 
-Yahoo Finance data is not redistributed in this repository, so a fresh `--refresh` download
-may differ slightly from the snapshot behind the committed results (Yahoo revises history), but it
-covers the same dates. `--refresh` also re-downloads the Brent series used in Phase 5.
-The TASI file is included. Everything is deterministic given the same raw data: two full reruns
-reproduce every output file byte for byte.
+A full run takes about 20 minutes. Raw Yahoo Finance prices are not stored in this repository
+(they are downloaded by `--refresh` into `data/raw/`, which git ignores). The committed results
+do contain numbers derived from them: daily *portfolio* returns, forecasts, and statistics. A
+fresh download may differ slightly from the snapshot behind the committed results (Yahoo revises
+history), but it covers the same dates; `--refresh` also re-downloads the Brent series. The TASI
+file is included (see Data). Given the same raw data, two full reruns reproduce every output file
+byte for byte.
 
 ## Data
 
 - **Stocks:** daily prices from Yahoo Finance via `yfinance` (`.SR` tickers), cached as raw CSVs in
-  `data/raw/` so reruns use the same snapshot. Returns are simple daily total returns from
-  Yahoo's dividend- and split-adjusted close (`Adj Close`).
-- **Benchmark (TASI):** the Saudi Exchange (Tadawul) official historical reports, TASI daily
-  history, 2013-01-01 to 2026-10-20 (3,443 sessions), in
-  `data/raw/TASI_daily_close_2013-01-01_to_2026-10-20.csv`. **TASI is a price index: dividends
-  are not reinvested.** Every comparison with TASI therefore uses the stocks' *price* returns
-  (split-adjusted close, no dividends); risk models elsewhere use total returns. Yahoo has no
-  usable TASI history (`^TASI.SR` returns one bar). Schema, enforced on load and tested:
-  `Date` (YYYY-MM-DD, strictly increasing, unique) and `Close` (numeric, positive). The file
-  passes range checks (5,416 to 13,820) and its largest daily move is −8.7% on 2020-03-08.
-  Before 29 June 2013 the exchange traded Saturday to Wednesday; those sessions are real.
+  `data/raw/`. Returns are simple daily total returns from Yahoo's dividend- and split-adjusted
+  close (`Adj Close`).
+- **Benchmark (TASI):** Tadawul All Share Index daily closing levels, 2013-01-01 to 2026-10-20
+  (3,443 sessions), in `data/raw/TASI_daily_close_2013-01-01_to_2026-10-20.csv`.
+  **Source: Saudi Exchange (Tadawul), historical reports, TASI daily history, retrieved
+  2026-10-20. All rights in the data remain with the Saudi Exchange; the file is included only so
+  that the results can be reproduced.** **TASI is a price index: dividends are not reinvested.**
+  Every comparison with TASI therefore uses the stocks' *price* returns (split-adjusted close, no
+  dividends); the risk models use total returns. Yahoo has no usable TASI history (`^TASI.SR`
+  returns one bar). Schema, enforced on load and tested: `Date` (YYYY-MM-DD, strictly increasing,
+  unique) and `Close` (numeric, positive). The file passes range checks (5,416 to 13,820) and its
+  largest daily move is −8.7% on 2020-03-08. Before 29 June 2013 the exchange traded Saturday to
+  Wednesday; those sessions are real.
 - **Oil:** Brent front-month futures from Yahoo (`BZ=F`), Phase 5 only.
-- **Sample:** 2019-12-11 (Saudi Aramco's listing) to 2026-10-20, the last session in the TASI file:
-  1,646 stock-panel dates. The end date is fixed in `tailwise/data.py` (`END`), so a later
-  `--refresh` reproduces this sample instead of extending it past the benchmark.
-  TASI's history before 2019-12-11 is used only for market regimes (Phase 4) and the stress
-  replay of 2014–16 (Phase 5), always walk-forward.
-
-### Calendar alignment
-
-Stocks and TASI are joined on trading dates (inner join, no forward-filling). In the sample,
-TASI has 1,711 sessions and the stock panel 1,646 dates: **0 stock dates are dropped** (every
-panel date is a real TASI session) and **65 TASI sessions are dropped** (3.8%) because Yahoo has
-no usable prices for them (by year: 2020 6, 2021 7, 2022 10, 2023 20, 2024 10, 2025 10, 2026 2).
-Returns after a missing session span it: 54 panel returns cover more than one session, at most
-4. Each dropped session is listed in the cleaning log.
+- **Sample:** 2014-01-01 to 2026-10-20 (`START` and `END` in `tailwise/data.py`): 3,087 panel
+  dates. The end date is the last session in the TASI file, so a later `--refresh` reproduces this
+  sample instead of extending it. Yahoo's Tadawul data before mid-2013 is unusable (fake prices,
+  wrong trading week), so 2014 is the earliest clean start.
 
 ### Universe (hand-picked)
 
-24 large, liquid stocks that traded continuously over the whole sample:
+19 large, liquid stocks with clean Yahoo history over the whole sample:
 
 | Sector | Stocks |
 |---|---|
-| Energy & petrochemicals | 2222 Aramco, 2010 SABIC, 2020 SABIC Agri-Nutrients, 2310 Sipchem, 2350 Saudi Kayan, 2290 Yansab |
+| Petrochemicals | 2010 SABIC, 2020 SABIC Agri-Nutrients, 2310 Sipchem, 2350 Saudi Kayan |
 | Materials | 1211 Ma'aden |
-| Banks | 1120 Al Rajhi, 1180 SNB, 1010 Riyad, 1060 SAB, 1150 Alinma, 1140 Albilad, 1080 ANB |
-| Telecom & utilities | 7010 stc, 7020 Mobily, 7030 Zain KSA, 5110 Saudi Electricity |
+| Banks | 1120 Al Rajhi, 1010 Riyad, 1060 SAB, 1150 Alinma, 1140 Albilad, 1080 ANB |
+| Telecom & utilities | 7010 stc, 5110 Saudi Electricity |
 | Consumer & health | 2280 Almarai, 4190 Jarir, 4002 Mouwasat, 8210 Bupa Arabia |
 | Other | 4300 Dar Al Arkan, 4030 Bahri |
 
-Screened out: Petro Rabigh and Savola (capital restructurings that Yahoo's adjustment does not
-handle cleanly), Banque Saudi Fransi (30 missing trading days), Saudi Cement (too illiquid).
+Left out, each for a reason found in the data:
+
+| Stock | Reason |
+|---|---|
+| 2222 Saudi Aramco | Listed 2019-12-11 |
+| 1180 Saudi National Bank | Listed 2014-11-12 |
+| 2290 Yansab | Yahoo has only zero-volume filler from April to October 2015 |
+| 7020 Mobily | Yahoo has only zero-volume filler in June and July 2015 |
+| 7030 Zain KSA | Capital reductions in 2015 and 2018 that Yahoo does not adjust (one-day "returns" of +66% and −38%) |
+| 2380 Petro Rabigh, 2050 Savola | Capital restructurings that Yahoo's adjustment does not handle cleanly |
+| 1050 Banque Saudi Fransi | Long gaps in Yahoo's history |
+| 3030 Saudi Cement | Too illiquid |
+
+An earlier version of this project used 24 stocks (with Aramco, SNB, Yansab, Mobily, and Zain)
+from Aramco's listing in December 2019. Its out-of-sample tests could not include March 2020 or
+the 2014–16 oil decline; this version trades those five stocks for twice the history.
 
 ### Cleaning decisions
 
@@ -102,35 +118,45 @@ Every action is written to `data/processed/cleaning_log.csv` with ticker, date, 
 
 | Step | Rule | Why | Effect |
 |---|---|---|---|
-| Filler rows | Drop rows with zero volume or missing price | Yahoo inserts carried-forward, zero-volume bars on holidays and outages; large caps never really trade zero shares | 1,295 stock-days |
-| Spike reversal | Drop a day that moves >10% and reverses by >10% the next day | Bad prints beyond Tadawul's ±10% daily limit. An earlier version also required very low volume, but Yahoo's volumes are unreliable (limitation 4) and it caught nothing | 1 day: Ma'aden 2023-06-08 (+51%, then −34%) |
-| Common calendar | Keep only dates on which all 24 stocks have a valid price | One calendar for covariance estimation; the next return then spans the gap for every stock alike | 38 dates dropped |
-| TASI join | Inner join with TASI sessions; no forward-fill | Benchmark and stocks on identical dates | 0 stock dates, 65 TASI sessions dropped |
-| Over-limit flag | Log, but keep, any return beyond ±10% | Most are two-day returns across a dropped date; deleting real tail events would flatter the risk models | 14 returns |
-| Stale prices | Log runs of >5 unchanged closes with real volume | Detects frozen price feeds | none in sample |
+| Filler rows | Drop rows with zero volume or missing price | Yahoo inserts carried-forward, zero-volume bars on holidays and outages; large caps never really trade zero shares | 1,972 stock-days |
+| Spike reversal | Drop a day that moves >10% and reverses by >10% the next day | Bad prints beyond Tadawul's ±10% daily limit | 1 day: Ma'aden 2023-06-08 (+51%, then −34%) |
+| Common calendar | Keep only dates on which all 19 stocks have a valid price | One calendar for covariance estimation; the next return then spans the gap for every stock alike | 71 dates dropped |
+| TASI join | Inner join with TASI sessions; no forward-fill | Benchmark and stocks on identical dates; removes Yahoo rows on non-trading days | 10 stock dates, 108 TASI sessions dropped |
+| Over-limit flag | Log, but keep, any return beyond ±10% | Almost all are returns spanning dropped sessions; deleting real tail events would flatter the risk models | 34 returns (largest 13.7%) |
+| Stale prices | Log runs of >5 unchanged closes with real volume | Detects frozen price feeds | 2 runs, both stc (8 days in Dec 2016, 6 in Jun–Jul 2017), kept |
 
 The spike rule looks one day ahead to decide that day *t* was a bad print. It is a data
 correction (as a vendor would make), not a model input.
 
+### Calendar alignment
+
+In the sample, TASI has 3,195 sessions. **10 stock dates are dropped** because they are not
+Tadawul sessions at all (Yahoo has priced rows on holidays, e.g. 26–29 June 2017), and **108
+TASI sessions are dropped** (3.4%) because Yahoo lacks a usable price for at least one stock
+(by year: 2014 2, 2015 12, 2016 16, 2017 9, 2018 4, 2019 2, 2020 4, 2021 7, 2022 10, 2023 20,
+2024 10, 2025 10, 2026 2). Nothing is forward-filled: 81 returns span more than one session,
+most of them two; the longest are 2015-03-08 (9 sessions: Saudi Kayan, Riyad, SAB, and ANB lack
+late February 2015) and 2016-05-24 (8 sessions: a market-wide Yahoo gap).
+
 ## Phase 1 results: what the data looks like
 
 Full-sample descriptive statistics (`results/phase1/summary_stats.csv`), not used by any model.
+Annualised with the panel's 241 observations per calendar year (Known Limitation 18).
 
-- **Volatility:** annualised volatility ranges from 16.5% (Aramco) to 34.6% (Ma'aden). The
-  equal-weight (EW) portfolio runs at 15.3%, well below any single stock: diversification does
-  real work here. Annualised with the panel's 240 observations per calendar year (see Known
-  Limitations 3 and 18).
-- **Correlation:** mean pairwise correlation is 0.32. Banks form the tightest block (up to 0.61),
-  followed by the petrochemicals. Healthcare, insurance, and Ma'aden are the least connected.
-  The 120-day average correlation swung from 0.60 (2020) to 0.14 (late 2021), so a single
-  full-sample correlation matrix hides a lot.
-- **Fat tails:** every stock rejects normality (Jarque-Bera p ≈ 0). The EW portfolio has
-  excess kurtosis 11.6 and skew −0.87: moves beyond 3 standard deviations happen on 1.16% of
-  days versus 0.27% under a normal, and the large ones are mostly on the downside.
-  This is a first warning for any normal (parametric) VaR.
+- **Volatility:** annualised volatility ranges from 21.2% (stc) to 35.8% (Dar Al Arkan). The
+  equal-weight (EW) portfolio runs at 16.7%, well below any single stock: diversification does
+  real work here.
+- **Correlation:** mean pairwise correlation is 0.34 (0.17 to 0.62). Banks form the tightest block
+  (average 0.51; the highest pair is Al Rajhi and Alinma at 0.62), followed by the petrochemicals
+  (0.49). Bupa, Mouwasat, Bahri, and Dar Al Arkan are the least connected. The 120-day average
+  correlation swung from 0.11 (mid-2014) to 0.60 (May 2020), so a single full-sample correlation
+  matrix hides a lot.
+- **Fat tails:** every stock rejects normality (Jarque-Bera p ≈ 0). The EW portfolio has excess
+  kurtosis 9.0 and skew −0.46: moves beyond 3 standard deviations happen on 1.43% of days versus
+  0.27% under a normal. This is a first warning for any normal (parametric) VaR.
 - **Volatility clustering:** 60-day EW volatility ranged from about 7% to 41% (peak May 2020).
-- **TASI** (price index, same dates): volatility 15.1%, skew −1.17, excess kurtosis 12.6, moves
-  beyond 3 standard deviations on 1.28% of days. The market index is as fat-tailed as the
+- **TASI** (price index, same dates): volatility 16.5%, skew −0.69, excess kurtosis 10.4, moves
+  beyond 3 standard deviations on 1.46% of days. The market index is as fat-tailed as the
   portfolio.
 
 ![Rolling vol and correlation](results/phase1/rolling_vol_corr.png)
@@ -138,32 +164,36 @@ Full-sample descriptive statistics (`results/phase1/summary_stats.csv`), not use
 
 ## Benchmark results: the portfolios against TASI
 
-Price returns on both sides (TASI has no dividends), annualised by calendar time
-(`results/benchmark/relative_performance.csv`). Beta is walk-forward: the beta used for day *t*
-is estimated on the 250 days before *t*. A full-sample beta is shown for description only.
+Price returns on both sides (TASI has no dividends), daily-rebalanced portfolios, 2014-01-01 to
+2026-10-20, annualised by calendar time (`results/benchmark/relative_performance.csv`). Beta is
+walk-forward: the beta used for day *t* is estimated on the 250 days before *t*. A full-sample
+beta is shown for description only.
 
 | Series | Price return p.a. | Volatility | vs TASI p.a. | Tracking error | Correlation | Beta (full sample) | Walk-forward beta range |
 |---|---|---|---|---|---|---|---|
-| equal_weight | 4.8% | 15.3% | +1.8 | 4.5% | 0.96 | 0.97 | 0.89–1.01 |
-| random 1–5 | 2.5% to 5.1% | 15.4–17.1% | −0.5 to +2.1 | 5.3–9.0% | 0.84–0.94 | 0.90–1.02 | 0.81–1.17 |
-| TASI | 3.0% | 15.1% | — | — | — | — | — |
+| equal_weight | 6.3% | 16.7% | +5.2 | 4.8% | 0.96 | 0.97 | 0.92–1.05 |
+| random 1–5 | 6.0% to 7.1% | 16.7–17.6% | +4.9 to +5.9 | 5.4–9.5% | 0.84–0.95 | 0.86–0.99 | 0.68–1.15 |
+| TASI | 1.1% | 16.5% | — | — | — | — | — |
 
 - **The portfolios are market portfolios.** Correlation with TASI is 0.84–0.96 and beta is close
-  to 1; walk-forward beta for equal-weight stayed between 0.89 and 1.01.
-- **Equal-weight beat TASI by 1.8 points a year in price terms.** Do not read this as skill: the
-  24 stocks were picked in 2026 as survivors, and equal-weighting underweights Aramco, which is a
-  large part of TASI. Four of the five random portfolios also beat TASI.
-- **Dividends matter a lot here.** The equal-weight total return was 8.2% a year against a 4.8%
-  price return, so about 3.4 points a year come from dividends that TASI does not include.
+  to 1; walk-forward beta for equal-weight stayed between 0.92 and 1.05.
+- **Equal-weight beat TASI by 5.2 points a year in price terms, and all five random portfolios
+  beat it too.** Do not read this as skill. The 19 stocks were picked in 2026 as survivors with
+  clean data; equal-weighting tilts away from the largest companies; and Aramco, a large part of
+  TASI since 2019, is not in the universe (its price fell 12% from its listing to 2026-10-20 while
+  TASI rose 22%).
+- **Dividends matter a lot here.** The equal-weight total return was 9.6% a year against a 6.3%
+  price return: about 3.3 points a year come from dividends that TASI does not include.
 
 ![EW vs TASI](results/benchmark/ew_vs_tasi.png)
 
 ## Phase 2 results: covariance forecasts
 
-**Setup.** On the first trading day of each block of 21 days (66 non-overlapping months,
-Dec 2020 – Sep 2026), each method forecasts the covariance of the next 21 daily returns using
-only data before that day. The forecast variance of a fixed portfolio is compared with its
-realised variance (sum of squared daily returns over the 21 days).
+**Setup.** At each origin, one every 21 trading sessions (135 non-overlapping blocks, January
+2015 to September 2026), each method forecasts the covariance of the next 21 daily returns using
+only data before the origin. The forecast variance of a fixed portfolio is compared with its
+realised variance (sum of squared daily returns over the 21 days). The first origin needs 250
+days of history, so tests start in January 2015.
 
 | Method | What it is |
 |---|---|
@@ -174,44 +204,43 @@ realised variance (sum of squared daily returns over the 21 days).
 
 Test portfolios: equal-weight plus 5 random long-only portfolios (Dirichlet(1) weights, seed 2026,
 saved in `results/phase2/test_portfolios.csv`). Main loss: QLIKE (Patton 2011), which ranks
-forecasts correctly even though one month of realised variance is a noisy target. Uncertainty:
-Diebold-Mariano test on monthly loss differences against `sample_250`, Newey-West standard errors.
+forecasts correctly even though one block of realised variance is a noisy target. Uncertainty:
+Diebold-Mariano test on loss differences against `sample_250`, Newey-West standard errors.
 
 **Equal-weight portfolio** (`results/phase2/evaluation.csv` has all six):
 
-| Method | QLIKE (lower is better) | vs sample_250 (95% CI) | DM p | mean realised / mean forecast | months realised > forecast |
+| Method | QLIKE (lower is better) | vs sample_250 (95% CI) | DM p | mean realised / mean forecast | blocks realised > forecast |
 |---|---|---|---|---|---|
-| garch_ccc | 0.281 | −0.053 (−0.123, +0.016) | 0.13 | 0.84 | 30% |
-| sample_250 | 0.335 | — | — | 0.89 | 33% |
-| ledoit_wolf_250 | 0.343 | +0.008 (−0.019, +0.035) | 0.55 | 0.97 | 33% |
-| sample_expanding | 0.372 | +0.037 (−0.089, +0.164) | 0.56 | 0.61 | 14% |
+| garch_ccc | 0.311 | −0.059 (−0.121, +0.002) | 0.06 | 0.84 | 24% |
+| sample_250 | 0.371 | — | — | 0.91 | 34% |
+| ledoit_wolf_250 | 0.378 | +0.007 (−0.011, +0.025) | 0.44 | 0.98 | 36% |
+| sample_expanding | 0.381 | +0.010 (−0.087, +0.108) | 0.84 | 0.75 | 19% |
 
 **What this says**
 
-- **GARCH ranks first on all six portfolios, but the win is not statistically significant.**
-  Its QLIKE is about 16% lower than the sample covariance's, and every 95% interval includes zero
-  (p = 0.13–0.31). With 66 months, this test cannot separate the three main methods.
-- **The GARCH edge comes from a few months.** The two largest gains are the months starting
-  2025-03-18 (the April 2025 sell-off) and 2022-05-11, where GARCH had already raised its
-  forecast and the 250-day sample had not. In calm months GARCH is slightly worse.
+- **GARCH ranks first on all six portfolios, but the win is not statistically significant.** Its
+  QLIKE is about 16% lower than the sample covariance's; the p-values across portfolios run from
+  0.05 to 0.44, and no 95% interval excludes zero. Twice the history narrowed the intervals but
+  did not settle the question.
+- **The GARCH edge comes from shocks.** The largest gains are the blocks starting 2020-02-23
+  (the March 2020 crash), 2025-04-06, and 2022-05-24, where GARCH had already raised its forecast
+  and the 250-day sample had not.
 - **It is not just more data.** The expanding-window sample covariance uses the same history as
-  GARCH and is the worst method: it never forgets 2020, so it over-forecasts risk by about 40%
-  on average.
-- **Ledoit-Wolf makes no practical difference here.** With 24 stocks and 250 days the sample
-  covariance is already well estimated; the shrinkage intensity averages 10%. Shrinkage would
-  matter for larger universes or shorter windows, which this project does not have.
-- **Every method misses the spikes.** All of them under-forecast the sharpest months (May 2022,
-  April 2025, September 2025) and over-forecast in calm ones. Monthly risk forecasts from past
-  data react to a shock only after it starts.
-- **The six test portfolios are nearly one test.** Long-only random weights spread across 24
-  stocks behave like the equal-weight portfolio: the monthly loss differences correlate at 0.80
-  or more across portfolios. Six wins are not six independent pieces of evidence.
+  GARCH and ranks last: it never forgets old crises, so it over-forecasts risk by about 25% on
+  average.
+- **Ledoit-Wolf makes no practical difference here.** With 19 stocks and 250 days the sample
+  covariance is already well estimated; the shrinkage intensity averages 8.5%.
+- **GARCH over-forecasts on average.** Realised variance averaged 84% of its forecast, and in 76%
+  of blocks realised was below forecast; it buys its good QLIKE in shocks with caution in calm
+  times.
+- **The six test portfolios are nearly one test.** Long-only random weights behave like the
+  equal-weight portfolio: their loss differences correlate at 0.76 or more.
 
 ![EW forecast vs realised](results/phase2/ew_forecast_vs_realised.png)
 
 ## Phase 3 results: VaR and Expected Shortfall backtests
 
-**Setup.** Every trading day from December 2020 (1,395 days), each model forecasts the next
+**Setup.** Every trading day from January 2015 (2,836 days), each model forecasts the next
 day's 95% and 99% VaR and ES for the six Phase 2 test portfolios, using only earlier returns.
 Portfolio weights are held fixed (equivalent to daily rebalancing).
 
@@ -231,45 +260,43 @@ and an ES check: on exceedance days, is the realised loss larger than the foreca
 
 | Model | Level | Exceedances (expected) | Kupiec p | Independence p | Cond. coverage p | Realised loss / forecast ES |
 |---|---|---|---|---|---|---|
-| historical | 95% | 69 (70) | 0.93 | **0.006** | **0.024** | 1.03 |
-| historical | 99% | **24 (14)** | **0.014** | 0.41 | **0.035** | 0.95 |
-| normal | 95% | 58 (70) | 0.14 | **0.002** | **0.003** | **1.26** |
-| normal | 99% | **26 (14)** | **0.004** | **0.010** | **0.001** | **1.28** |
-| student_t | 95% | 74 (70) | 0.61 | **0.001** | **0.005** | 1.05 |
-| student_t | 99% | 20 (14) | 0.13 | 0.27 | 0.17 | 1.06 |
-| fhs_garch | 95% | 70 (70) | 0.98 | 0.40 | 0.70 | 0.90 |
-| fhs_garch | 99% | 8 (14) | 0.08 | 0.76 | 0.21 | 0.96 |
+| historical | 95% | 145 (142) | 0.78 | **<0.001** | **<0.001** | 1.02 |
+| historical | 99% | **40 (28)** | **0.039** | **0.018** | **0.007** | 1.05 |
+| normal | 95% | 123 (142) | 0.10 | **<0.001** | **<0.001** | **1.24** |
+| normal | 99% | **52 (28)** | **<0.001** | **<0.001** | **<0.001** | **1.31** |
+| student_t | 95% | 148 (142) | 0.60 | **<0.001** | **<0.001** | 1.03 |
+| student_t | 99% | 37 (28) | 0.12 | **0.012** | **0.013** | 1.05 |
+| fhs_garch | 95% | 143 (142) | 0.92 | **0.037** | 0.11 | 0.98 |
+| fhs_garch | 99% | 28 (28) | 0.95 | 0.46 | 0.76 | 0.96 |
 
-Bold: rejected at 5%. Across all six portfolios, number of rejections of conditional coverage:
-historical 5 (95%) and 3 (99%), normal 4 and 5, Student-t 3 and 2, FHS-GARCH 0 and 0.
+Bold: rejected at 5%. Across all six portfolios, conditional coverage is rejected for historical,
+normal, and Student-t VaR on **all six portfolios at both levels**, and for FHS-GARCH on none.
 
 **What this says**
 
-- **The normal model fails, as Phase 1 predicted.** At 99% it has nearly twice the expected
-  exceedances on every portfolio, and when it is breached the loss is about 25% larger than its
-  ES forecast (ES rejected on all six portfolios at both levels). Fat tails break it.
-- **Fat tails alone fix the count but not the timing.** Student-t gets the 99% rate roughly right
-  and its ES is not rejected, but at 95% its exceedances cluster (independence rejected on 4 of 6
-  portfolios). A fixed 250-day window cannot react when volatility jumps, so breaches arrive in
-  bunches: late 2021, mid-2022, 2024.
-- **Historical simulation has the same clustering problem**, and at 99% it is also breached too
-  often (1.3–1.7% vs 1%): with 250 observations its 99% quantile rests on the 2–3 worst days of
-  the past year.
-- **FHS-GARCH is the only model never rejected**, because its volatility updates daily and
-  removes the clustering. But it is **too conservative at 99%**: 0.5–0.6% exceedances versus
-  1%, significantly too few on 2 of 6 portfolios, and its 95% ES runs about 10% above realised
-  losses. Likely cause: its residual tail includes the 2020 crash; that is a capital cost, not a
-  risk failure, but it is still a miss.
-- **The tests have little power at 99%.** About 14 exceedances are expected in the whole period,
-  so 8 or 20 are not significantly different from 14. The 99% verdicts are weaker than the
-  95% ones.
+- **The normal model fails, as Phase 1 predicted.** At 99% it is breached 1.7–2.0% of the time on
+  every portfolio, and when it is breached the loss is 22–32% larger than its ES forecast (ES
+  rejected on all six portfolios at both levels). Fat tails break it.
+- **Fat tails alone fix the count but not the timing.** Student-t gets the 99% rate close
+  (1.2–1.4%) and its ES holds, but its breaches cluster: independence is rejected on all six
+  portfolios at both levels. A fixed 250-day window cannot react when volatility jumps.
+- **Historical simulation has the same clustering problem**, and at 99% it is breached too often
+  (1.3–1.5%): with 250 observations its 99% quantile rests on the 2–3 worst days of the past year.
+- **FHS-GARCH is the only model that passes.** Its breach rates are 4.7–5.3% and 0.8–1.1% across
+  portfolios, its ES ratio is 0.95–1.01, and conditional coverage is never rejected (independence
+  at 95% is rejected once, on the EW portfolio, p = 0.04).
+- **What changed with the longer sample.** On the earlier 2019–2026 sample FHS looked too
+  conservative at 99% (0.5–0.6% breaches). With residuals from 2014 and a test period that
+  includes 2015–16 and 2020, its 99% rate is right. The earlier result was a short-sample effect.
+- **March 2020, out of sample:** from 20 February to 31 March 2020, FHS had 2 breaches of its 99%
+  VaR on the EW portfolio; historical, normal, and Student-t had 5 each.
 
 ![EW 99% VaR](results/phase3/ew_var99.png)
 
 **Bug found and fixed during this phase:** scipy's default Student-t fit sometimes stopped at a
-worse local optimum (degrees of freedom below 2), producing one-day spikes in the t VaR on 74 days.
-The fit now starts from two points and keeps the higher likelihood (tested). This is a numerical
-fix, not a model change; the 99% exceedance count was 20 before and after.
+worse local optimum (degrees of freedom below 2), producing one-day spikes in the t VaR. The fit
+now starts from two points and keeps the higher likelihood (tested). This is a numerical fix,
+not a model change.
 
 ## Phase 4 results: where the models fail, by market regime
 
@@ -277,14 +304,13 @@ fix, not a model change; the 99% exceedance count was 20 before and after.
 Gaussian hidden Markov model (HMM) runs on TASI daily returns on TASI's own calendar since 2013,
 refitted every 21 sessions on all TASI history to date (best of 5 seeded starts). The label for
 day *t* is the predicted probability of the turbulent state given TASI returns **before** *t*
-only: a risk manager could have known it that morning. Day *t* is "turbulent" when that probability
-is above 0.5. Cross-check: a simple threshold (trailing 21-session TASI volatility above its
-own median to date). Tests check both labelings for lookahead.
+only: a risk manager could have known it that morning. Day *t* is "turbulent" when that
+probability is above 0.5. Cross-check: a simple threshold (trailing 21-session TASI volatility
+above its own median to date). Tests check both labelings for lookahead.
 
 Since 2014, the HMM labels 25% of TASI sessions turbulent, with 2015 and 2016 the most turbulent
-years. In the Phase 3 test period it labels 217 of 1,395 days (16%) turbulent, in episodes such
-as late 2021, May–July and September–October 2022, mid-2024, and April and June 2025. The
-threshold labels 41%; the two agree on 73% of test days.
+years. In the Phase 3 test period it labels 760 of 2,836 days (27%) turbulent. The threshold
+labels 51%; the two agree on 73% of test days.
 
 ![HMM regimes](results/phase4/hmm_regimes.png)
 
@@ -292,79 +318,84 @@ threshold labels 41%; the two agree on 73% of test days.
 
 | Model | 95% calm (exp. 5%) | 95% turbulent | 99% calm (exp. 1%) | 99% turbulent |
 |---|---|---|---|---|
-| historical | 4.1% | **9.7%** | 1.4% | **3.7%** |
-| normal | **3.2%** | **9.2%** | 1.3% | **5.1%** |
-| student_t | 4.2% | **11.1%** | 1.1% | **3.2%** |
-| fhs_garch | 5.0% | 5.1% | **0.4%** | 1.4% |
+| historical | **4.0%** | **8.3%** | 1.2% | **2.1%** |
+| normal | **3.3%** | **7.2%** | 1.3% | **3.2%** |
+| student_t | **3.9%** | **8.9%** | 1.0% | **2.2%** |
+| fhs_garch | 5.2% | 4.7% | 1.0% | 1.1% |
 
-1,178 calm days, 217 turbulent days. Bold: Kupiec test rejects at 5%. Across all six portfolios,
-historical and Student-t VaR are rejected in the turbulent regime on all six at both levels,
-normal on all six at 99% and three at 95%; FHS-GARCH on none. In calm periods FHS-GARCH is
-rejected at 99% on four of six portfolios for having too *few* breaches (0.3–0.5%).
+2,076 calm days, 760 turbulent days. Bold: Kupiec test rejects at 5%. Across all six portfolios,
+historical, normal, and Student-t VaR are rejected in the turbulent regime on all six at both
+levels; at 95% in calm markets they are also rejected on most portfolios (4–6 of 6), for too
+*few* breaches. FHS-GARCH is rejected on none, in either regime.
 
 **What this says**
 
-- **The window-based models fail when the market is turbulent.** Historical, normal, and
-  Student-t VaR are breached on 9–11% of turbulent days instead of 5%, and 3–5% instead of 1%.
-  Their aggregate Phase 3 numbers looked tolerable because most days are calm.
-- **FHS-GARCH is the only model that holds in turbulent markets** (5.1% and 1.4%, not rejected).
-  Its weakness is the opposite: in calm markets it is too conservative at 99%.
+- **The window-based models are wrong in both directions.** In turbulent markets they are
+  breached on 7–9% of days instead of 5%, and 2–3% instead of 1%; in calm markets they are too
+  cautious (3–4% at 95%). Their aggregate Phase 3 rates look closer to right only because the two
+  errors partly cancel.
+- **FHS-GARCH holds in both regimes** (5.2% and 4.7% at 95%, 1.0% and 1.1% at 99%), because its
+  volatility updates daily.
 - **Fat tails are not the fix; reaction speed is.** Student-t is no better than historical in
-  turbulent periods. What separates the models is whether their volatility updates daily.
-- **The threshold cross-check agrees.** On its turbulent days the window models run at 2.5–3.2%
-  at 99% for equal-weight and are rejected on 5–6 of 6 portfolios; FHS-GARCH at 1.1%, never rejected.
-- **For covariance forecasts the regime split does not favour GARCH.** Only 8 of 66 Phase 2
-  months start TASI-turbulent. On the threshold split (28 turbulent months), GARCH-CCC has the
-  lowest QLIKE in calm months (0.29 vs 0.39 for the sample covariance) but not in turbulent ones
-  (0.27 vs 0.25). Too few months to conclude anything.
-- **What changed from the earlier version.** Regimes were first defined on the equal-weight
-  portfolio's own returns since December 2019, which labelled only 7% of test days turbulent and
-  gave more extreme breach rates (14–17% at 95%). Defining them on TASI, with its longer history,
-  labels a broader set of days. The conclusions are the same; the magnitudes are smaller.
+  turbulent periods.
+- **The threshold cross-check agrees.** On its turbulent days the window models run at 2.0–2.7%
+  at 99% for equal-weight and are rejected on all six portfolios; FHS-GARCH runs at 1.5% and is
+  never rejected there (it is rejected at 99% in calm on two portfolios, for too few breaches).
+- **For covariance forecasts, GARCH-CCC has the lowest QLIKE in every regime split**: on the HMM
+  split (38 turbulent blocks, 97 calm) 0.23 vs 0.30 for the sample covariance in turbulent blocks
+  and 0.34 vs 0.40 in calm ones; the threshold split agrees. The 250-day sample covariance
+  under-forecasts turbulent blocks (realised/forecast 1.07) and over-forecasts calm ones (0.82).
 
 ## Phase 5 results: stress replay and oil sensitivity
 
 ### Historical episodes
 
 The worst non-overlapping 10- and 21-trading-day windows for the equal-weight (EW) portfolio are
-found in the data, then replayed on all six test portfolios (`results/phase5/episodes.csv`). The
-"context" column is my annotation of widely reported events, not something derived from the data.
-For episodes after the first year, the last column compares the loss with the 1-day 99% VaR each
-model forecast the day before the episode started, scaled by √days (which assumes independent
-days; with volatility clustering this understates multi-day risk). TASI's loss over the same
-dates is in `episodes.csv` (price return), with the equal-weight price-return loss predicted
-from its walk-forward beta to TASI before the episode.
+found in the data, then replayed on all six test portfolios (`results/phase5/episodes.csv`).
+The "context" column is my annotation of widely reported events, not something derived from the
+data. For episodes after the first year, the last column compares the loss with the 1-day 99% VaR
+each model forecast the day before the episode started, scaled by √days (which assumes
+independent days; with volatility clustering this understates multi-day risk). TASI's loss over
+the same dates and the EW price loss predicted from its walk-forward beta to TASI are also in
+`episodes.csv`.
 
-| Window | Dates | EW loss | Random portfolios | Context | Loss ÷ scaled 99% VaR (FHS / hist / normal / t) |
-|---|---|---|---|---|---|
-| 21d | 2020-02-20 → 03-23 | 22.4% | 18–27% | COVID onset and the OPEC+ price war (Brent −30% in two consecutive weeks) | no model yet |
-| 10d | 2020-02-23 → 03-09 | 20.2% | 19–21% | same | no model yet |
-| 10d | 2022-05-09 → 05-23 | 10.4% | 8–12% | 2022 global rate-hike sell-off | 1.28 / 1.44 / 2.02 / 1.79 |
-| 21d | 2022-04-17 → 05-23 | 11.3% | 9–13% | same | 0.98 / 1.08 / 1.56 / 1.37 |
-| 10d | 2022-06-07 → 06-20 | 9.2% | 9–11% | same | 0.73 / 1.12 / 1.53 / 1.29 |
-| 21d | 2022-06-12 → 07-14 | 10.1% | 9–11% | same | 0.65 / 0.85 / 1.15 / 0.97 |
-| 21d | 2022-08-28 → 09-26 | 11.8% | 10–14% | September 2022 global sell-off | 0.87 / 0.73 / 1.12 / 0.93 |
-| 21d | 2022-11-08 → 12-11 | 11.1% | 10–13% | not verified; banks led the decline | 0.80 / 0.69 / 0.95 / 0.84 |
-| 10d | 2020-10-19 → 11-01 | 8.4% | 8–10% | not verified | no model yet |
-| 10d | 2021-11-15 → 11-30 | 8.0% | 7–9% | includes the Omicron news of 26 Nov 2021 | 1.32 / 1.78 / 2.00 / 1.87 |
+| Window | Dates | EW loss | Random portfolios | TASI (price) | Context | Loss ÷ scaled 99% VaR (FHS / hist / normal / t) |
+|---|---|---|---|---|---|---|
+| 21d | 2015-07-27 → 08-24 | 23.9% | 21–23% | 24.5% | Global sell-off of August 2015 after China's devaluation, with oil falling | 2.22 / 1.18 / 1.48 / 1.15 |
+| 21d | 2020-02-20 → 03-23 | 22.8% | 20–24% | 24.8% | COVID onset and the OPEC+ price war | 1.83 / 2.16 / 2.33 / 2.22 |
+| 10d | 2015-08-11 → 08-24 | 20.0% | 18–20% | 20.5% | same as August 2015 above | 1.68 / 1.43 / 1.75 / 1.37 |
+| 10d | 2020-02-23 → 03-09 | 19.9% | 16–21% | 21.1% | same as March 2020 above | 2.44 / 2.73 / 2.95 / 2.82 |
+| 21d | 2015-12-21 → 2016-01-20 | 19.1% | 16–17% | 21.2% | Oil below $30 in January 2016 | 0.87 / 0.79 / 1.05 / 0.84 |
+| 21d | 2014-11-18 → 12-16 | 18.9% | 15–20% | 21.1% | Oil collapse after OPEC's November 2014 decision not to cut output | no model yet |
+| 10d | 2016-01-05 → 01-20 | 18.3% | 16–18% | 19.6% | same as January 2016 above | 1.66 / 1.31 / 1.67 / 1.39 |
+| 10d | 2014-12-03 → 12-16 | 15.0% | 13–16% | 16.2% | same as December 2014 above | no model yet |
+| 21d | 2014-09-10 → 10-16 | 13.3% | 11–14% | 14.4% | Start of the 2014 oil-price decline | no model yet |
+| 10d | 2016-09-18 → 10-03 | 11.8% | 12–17% | 12.3% | Saudi public-sector pay cuts announced in late September 2016 | 1.22 / 0.96 / 1.18 / 1.05 |
 
-- **March 2020 is the worst episode in the stock sample** (20–22% in two to four weeks, about
-  twice any later one) and the one no model could be tested on, because the sample starts three
-  months before it. TASI's longer history shows it is not unique (next section).
-- **TASI fell more than the portfolio in 8 of 10 episodes** (price terms). For the seven
-  episodes with a pre-episode beta, beta × TASI's loss predicted the equal-weight price loss to
-  within 2.2 points each time (for example 10.6% predicted vs 10.6% in May 2022, 9.4% vs 11.6%
-  in April–May 2022). These are moderate sell-offs; whether the linear beta holds in a crash like
-  March 2020 cannot be tested here.
-- **Every model's scaled 99% VaR was exceeded by at least one episode.** The normal model was
-  exceeded by 6 of 7 testable episodes, FHS-GARCH by 2 of 7 (both short, sharp 10-day drops). Even the best model's 99% number is not a worst case.
-- **Diversification barely helps in a stress episode.** The random portfolios lose about the
-  same as equal-weight in every episode; in March 2020 the worst stocks were banks, not oil names.
+- **2015–16 was as severe as March 2020.** The August 2015 and January 2016 sell-offs cost the
+  portfolio 18–24%, the same range as March 2020 (20–23%), and eight of the ten worst windows fall
+  in 2014–16.
+- **No model's scaled 99% VaR was a safe bound.** Of the seven episodes with a forecast, the scaled
+  99% VaR was exceeded in six for FHS-GARCH, five for historical, seven for normal, and six for
+  Student-t, often by a factor of 1.5 to 3. FHS, the best one-day model, is no better here: these
+  are sharp falls arriving from calm conditions, and √days scaling of a one-day forecast does not
+  capture them.
+- **TASI fell more than the portfolio in all ten episodes** (price terms). For the seven episodes
+  with a pre-episode beta, beta × TASI's loss predicted the EW price loss to within 1.7 points
+  each time.
+- **Diversification barely helps in a stress episode.** The random portfolios lose about the same
+  as equal-weight in every episode; in March 2020 the worst stocks were banks, not oil names.
 
-### TASI's longer history: 2014–16 and March 2020 in context
+### The 2014–16 oil-price decline
 
-The stock sample starts in December 2019, but TASI goes back to 2013
-(`results/phase5/tasi_episodes.csv`, `oil_decline_2014_16.csv`).
+From TASI's peak on 2014-09-09 to its trough on 2016-10-03 (512 sessions), TASI fell 51.4% and
+Brent fell 50.5% over the same dates (Brent's own peak-to-trough, June 2014 to January 2016, was
+−75.8%). Over the same dates the **equal-weight portfolio fell 41.0% in price terms and 37.5%
+with dividends** (`results/phase5/oil_decline_2014_16.csv`). This is a slow, two-year bear market:
+its worst windows are in the table above, and the rest is a long grind that one-day risk models
+are not built to describe.
+
+TASI's own worst windows since 2013 (`results/phase5/tasi_episodes.csv`):
 
 | Rank | TASI's worst 10 sessions since 2013 | TASI's worst 21 sessions since 2013 |
 |---|---|---|
@@ -374,146 +405,149 @@ The stock sample starts in December 2019, but TASI goes back to 2013
 | 4 | 2014-12-03 → 12-16: −16.2% | 2014-11-18 → 12-16: −21.1% |
 | 5 | 2016-09-18 → 10-02: −11.8% | 2014-09-10 → 10-16: −14.4% |
 
-- **March 2020 is not unique.** It is TASI's worst 21-session window since 2013, but only
-  narrowly ahead of August 2015, and four of the five worst 10- and 21-session windows fall in the
-  2014–16 oil-price decline.
-- **The 2014–16 oil-price decline:** TASI fell 51.4% from 2014-09-09 to 2016-10-03 (512
-  sessions); Brent fell 50.5% over the same dates (its own peak-to-trough, June 2014 to January
-  2016, was −75.8%). This is a slow, two-year bear market, not a crash.
-- **Replayed on today's portfolio** (hypothetical): with its latest walk-forward beta to TASI
-  (0.98), a repeat of the 2014–16 fall would cost the equal-weight portfolio about 51% in price
-  terms. This assumes the beta stays constant through a two-year decline and that the 24 stocks
-  of 2026 behave like the 2014 market; it is a scenario, not a forecast.
-
 ### Oil sensitivity (Brent)
 
-Weekly returns, Tadawul Thursday-to-Thursday paired with Brent Wednesday-to-Wednesday
-(Brent settles after Tadawul closes), 343 weeks. Brent is Yahoo's continuous front-month future
-`BZ=F`. Full table: `results/phase5/oil_betas.csv`.
+Weekly returns, Tadawul Thursday-to-Thursday paired with Brent Wednesday-to-Wednesday (Brent
+settles after Tadawul closes), 633 weeks. Brent is Yahoo's continuous front-month future `BZ=F`.
+Full table: `results/phase5/oil_betas.csv`.
 
-- **Oil explains little of the week-to-week risk.** EW portfolio oil beta 0.11 (95% CI 0.07–0.14),
-  R² 9%: a 10% Brent drop goes with about a 1.1% portfolio drop on average.
-- **Oil exposure is broad, not just energy.** The highest betas are petrochemicals (Yansab,
-  Sipchem, Saudi Kayan ≈ 0.19) but Riyad Bank (0.18) and ANB (0.16) are as high; Aramco itself
-  is only 0.13. Telecoms, consumer, and Bahri are near zero.
-- **The market's oil link has weakened.** TASI's weekly oil beta was 0.17 (SE 0.03) from July 2013
-  to December 2019, against 0.11 (SE 0.02) in the sample period, the same as the equal-weight
-  portfolio's. Oil explains about 9–10% of weekly TASI moves in both periods.
+- **Oil explains little of the week-to-week risk.** EW portfolio oil beta 0.12 (95% CI 0.09–0.16),
+  R² 8.5%: a 10% Brent drop goes with about a 1.2% portfolio drop on average.
+- **Oil exposure is broad, not just energy.** The highest betas are petrochemicals (Sipchem 0.25,
+  Saudi Kayan 0.22, SABIC 0.20); banks sit at 0.10–0.16; stc and Bahri are near zero.
+- **The market's oil link has weakened.** TASI's weekly oil beta was 0.18 (SE 0.03) from 2014 to
+  December 2019, against 0.11 (SE 0.02) after it. Oil explains about 10% of weekly TASI moves in
+  both halves.
 
 **Scenario** (Brent weekly moves that actually occurred in the sample; full-sample beta):
 
 | Brent weekly shock | Predicted EW move (95% CI) |
 |---|---|
-| −30.5% (worst week, March 2020) | −3.3% (−2.2% to −4.4%) |
-| −16.0% (1st percentile week) | −1.7% (−1.2% to −2.3%) |
-| −9.7% (5th percentile week) | −1.0% (−0.7% to −1.4%) |
+| −30.5% (worst week, March 2020) | −3.8% (−2.8% to −4.8%) |
+| −14.1% (1st percentile week) | −1.7% (−1.3% to −2.2%) |
+| −8.0% (5th percentile week) | −1.0% (−0.7% to −1.3%) |
 
 **The scenario number is not reliable.** The two worst Brent weeks were almost identical (−30.0%
-and −30.5%, March 2020), but the EW portfolio fell 12.2% in the first and only 1.7% in the second.
-A linear oil beta cannot capture that. Out of sample (betas estimated only on earlier weeks, 239
-weeks from January 2022), predicted and actual weekly returns correlate at 0.27; in the six worst Brent
-weeks the portfolio fell in three and rose in three. In April 2025 the model predicted −1.6% and
-the portfolio fell 6.2%: that sell-off was a global equity shock, not an oil shock.
+and −30.5%, March 2020), but the EW portfolio fell 11.6% in the first and only 2.5% in the
+second. A linear oil beta cannot capture that. Out of sample (betas estimated only on earlier
+weeks, 529 weeks from February 2016), predicted and actual weekly returns correlate at 0.26; in
+the six worst Brent weeks the portfolio fell in four and rose in two.
 
 ## Phase 6 results: minimum-variance allocation
 
-**Setup.** Same 66 monthly rebalance dates as Phase 2. At each date, a long-only, fully invested
-minimum-variance portfolio is built from the GARCH-CCC covariance (top-ranked in Phase 2) and,
-as a control, from the 250-day sample covariance, using only earlier returns. Weights drift with
-prices between rebalances; trading costs are 15 bps per unit traded (roughly Tadawul's
-commission; spreads and market impact are ignored), with 0 and 30 bps as sensitivity.
+**Setup.** Same 135 rebalance dates as Phase 2 (one every 21 trading sessions, 2015-01-06 to
+2026-09-20; the portfolios are held to 2026-10-20, about 11.8 years). At each date, a long-only,
+fully invested minimum-variance portfolio is built from the GARCH-CCC covariance (top-ranked in
+Phase 2) and, as a control, from the 250-day sample covariance, using only earlier returns.
+Weights drift with prices between rebalances; trading costs are 15 bps per unit traded (roughly
+Tadawul's commission; spreads and market impact are ignored), with 0 and 30 bps as sensitivity.
+Returns are total returns, annualised with the 241 observations per calendar year of this period.
 Differences against equal-weight carry 95% intervals from a 21-day moving-block bootstrap.
 Full results: `results/phase6/performance.csv`.
 
-| Strategy (15 bps) | Return p.a. | Volatility p.a. | Max drawdown | Monthly turnover | Effective no. of stocks |
+| Strategy (15 bps) | Return p.a. | Volatility p.a. | Max drawdown | Turnover per rebalance | Effective no. of stocks |
 |---|---|---|---|---|---|
-| equal_weight | 7.5% | 13.5% | 20.3% | 5% | 24 |
-| min_var_sample_250 | 6.8% | 11.3% | 18.8% | 20% | 5.1 |
-| min_var_garch_ccc | 4.6% | 11.3% | 23.9% | 63% | 5.6 |
+| equal_weight | 8.9% | 16.3% | 40.3% | 5% | 19 |
+| min_var_sample_250 | 8.7% | 14.7% | 42.8% | 22% | 5.4 |
+| min_var_garch_ccc | 5.7% | 14.6% | 47.5% | 65% | 6.0 |
 
-Returns and volatilities are annualised with the observations per calendar year in the test
-period (about 239). Volatility vs equal-weight: −2.1 points for both, 95% CI about (−2.8, −1.4):
-**significant**. Return vs equal-weight: −0.6 points for sample (CI −7.2 to +5.3) and −2.9 for
-GARCH (CI −10.2 to +3.3): **not significant**.
+Volatility vs equal-weight: −1.6 points for the sample version and −1.7 for GARCH, 95% CI about
+(−2.2, −1.1): **significant**. Return vs equal-weight: −0.2 points for sample (CI −5.0 to +4.2)
+and −3.2 for GARCH (CI −7.7 to +0.9): **not significant at 15 bps**; at 30 bps the GARCH
+shortfall (−4.3 points, CI −8.8 to −0.2) is significant.
 
 ![Min-variance vs equal-weight](results/phase6/cumulative.png)
 
 **What this says**
 
-- **Minimum variance does what it promises:** about 2.1 points lower volatility than
-  equal-weight, a reduction the bootstrap says is real.
-- **The better covariance forecast does not make a better portfolio.** GARCH-CCC gives exactly
-  the same volatility reduction as the plain sample covariance, but trades three times as much
-  (63% vs 20% of the portfolio a month) because its volatility forecasts move every month. After
-  costs it returns 2.3 points a year less than the sample version and has the deepest drawdown
-  of the three (23.9%, April–December 2022). Phase 2's small, insignificant forecasting edge does
-  not survive contact with an optimiser and costs.
-- **The portfolios are concentrated.** Half of the 24 stocks get zero weight; on average the
-  largest position is about a third of the portfolio (Saudi Aramco, about 26–32% on average),
-  followed by Jarir, Bahri, and stc. Effective diversification is about 5 stocks. A real mandate
-  would cap weights; this test does not, and that is a choice that favours lower volatility.
-- **Returns cannot be compared with any confidence.** Six years of monthly rebalancing is far too
-  short to say whether minimum variance costs return here.
+- **Minimum variance lowers volatility but not drawdown.** It cuts volatility by about 1.6
+  points, a reduction the bootstrap says is real, yet both minimum-variance portfolios fell
+  further than equal-weight in the 2015–16 decline (43% and 48% vs 40%). Low past volatility did
+  not mean small losses in a two-year bear market.
+- **The better covariance forecast makes a worse portfolio.** GARCH-CCC gives the same volatility
+  as the sample covariance but trades three times as much (65% vs 22% of the portfolio per
+  rebalance), because its volatility forecasts move every month. After costs it returns 3.0
+  points a year less than the sample version and has the deepest drawdown.
+- **The portfolios are concentrated.** About 45% of stock-dates get zero weight; on average the
+  largest position is about a third of the portfolio, and Jarir averages 17–18%, followed by stc,
+  Bahri, SABIC Agri-Nutrients, and Riyad Bank. Effective diversification is 5–6 stocks. A real
+  mandate would cap weights; this test does not.
+
+### How the equal-weight figures in this README differ
+
+The same 19 stocks give different "equal-weight returns" in different sections because they
+measure different things:
+
+| Where | Figure | Return type | Rebalancing | Period |
+|---|---|---|---|---|
+| Benchmark | 6.3% | price (no dividends), to compare with TASI | daily | 2014-01-01 to 2026-10-20 |
+| Benchmark | 9.6% | total | daily | 2014-01-01 to 2026-10-20 |
+| Phase 6 | 8.9% | total, net of 15 bps costs | every 21 sessions, weights drift between | 2015-01-06 to 2026-10-20 |
+
+Phase 6 starts a year later because the first allocation needs 250 days of history.
 
 ## Known Limitations
 
 Kept up to date as the project goes.
 
-1. **Survivorship bias.** The universe is hand-picked today from stocks that survived and stayed
-   liquid through the whole sample. Delisted, merged, or collapsed names are excluded, which
-   likely understates realised risk and flatters performance: the equal-weight portfolio's
-   1.8-point annual lead over TASI should be read in that light.
-2. **Short history.** About 6.8 years and 1,646 days for the stocks. Backtests of 99% risk
-   measures have few expected exceedances and wide uncertainty. TASI's history from 2013 shows
-   that the sample misses a full bear market (2014–16) and that 2015–16 shocks were as large as
-   March 2020; risk models fitted on the sample have never seen a two-year decline.
-3. **Data vendor.** Yahoo Finance data for Tadawul is free and unofficial. Data before mid-2013
-   is unusable (fake prices, wrong trading week). Checked against TASI's official calendar,
-   Yahoo lacks 65 of 1,711 sessions in the sample (3.8%; 20 in 2023). Returns after a missing
-   session cover two to four sessions, which slightly inflates measured tail risk on those days.
+1. **Survivorship bias.** The universe is hand-picked in 2026 from stocks that survived, stayed
+   liquid, and have clean data from 2014 to 2026. Delisted, merged, or collapsed names are
+   excluded, which likely understates realised risk and flatters performance: the equal-weight
+   portfolio's 5.2-point annual lead over TASI should be read in that light.
+2. **The universe is not the market.** Saudi Aramco and Saudi National Bank, two of the largest
+   companies, are excluded because they listed after the start date, and Yansab, Mobily, and Zain
+   KSA for Yahoo data problems. TASI is cap-weighted and, since 2019, dominated by Aramco; the
+   19-stock equal-weight portfolio is a different, smaller-cap-tilted portfolio.
+3. **Data vendor.** Yahoo Finance data for Tadawul is free and unofficial. Data before mid-2013 is
+   unusable. Checked against TASI's official calendar, Yahoo lacks a usable price for at least one
+   stock on 108 of 3,195 sessions (3.4%), and has priced rows on 10 days that were not Tadawul
+   sessions. Returns after a missing session span it (81 returns, up to 9 sessions), which
+   inflates measured tail risk on those days.
 4. **Volume data is unreliable.** Yahoo's volume for some stocks drops to a few hundred shares for
-   weeks at a time (e.g. Ma'aden May–June 2023), so no cleaning rule or liquidity measure here
-   relies on volume, other than treating zero volume as a non-trading filler row.
-5. **Adjustment accuracy.** Total returns rely on Yahoo's dividend and split adjustments. Spot
-   checks match exactly, but a wrong adjustment that stays within the daily limit would not be
-   caught.
-6. **The out-of-sample period starts after the March 2020 crash.** Starting at Aramco's listing
-   leaves only about 60 days before March 2020, so every rolling test (from December 2020 on) uses
-   the crash only as estimation data. The worst event in the sample is never forecast out of sample.
-7. **Few independent observations.** Monthly evaluation gives 66 non-overlapping months; the
-   Phase 2 differences between methods are within statistical noise. Long-only random portfolios
-   add little independent evidence because they are highly correlated with equal-weight.
+   weeks at a time (e.g. Ma'aden May–June 2023), so no cleaning rule here relies on volume, other
+   than treating zero volume as a non-trading filler row.
+5. **Adjustment accuracy.** Total returns rely on Yahoo's dividend and split adjustments. Zain KSA
+   was excluded for unadjusted capital reductions; the remaining stocks pass the spike and
+   daily-limit checks, but a wrong adjustment that stays within the limit would not be caught, and
+   pre-2019 adjustments were not checked against a second source. Two stale-price runs in stc (2016
+   and 2017) are logged and kept.
+6. **The first part of the 2014 decline is not tested out of sample.** Every rolling test needs 250
+   days of history, so tests start in January 2015; September–December 2014 is estimation data only.
+7. **Few independent observations.** 135 non-overlapping 21-session blocks in Phase 2; the
+   differences between covariance methods are still within statistical noise. Long-only random
+   portfolios add little independent evidence because they are highly correlated with equal-weight.
 8. **Phase 2 design choices** (not tuned to results): 250-day window, 21-day horizon, GARCH(1,1)
    with normal quasi-likelihood, constant correlation instead of DCC, identity shrinkage target
    instead of constant correlation.
 9. **Phase 3 design choices** (not tuned to results): 250-day window for historical, normal, and
-   t models; FHS uses all standardised residuals since December 2019, including the 2020 crash,
-   which likely explains why it is conservative; GARCH parameters refitted every 21 days.
-10. **The ES test is weak.** It is a one-sided t-test on 8–26 exceedance days per model and only
-    detects ES that is too small; an ES that is too large (as with FHS at 95%) shows only in the ratio.
+   t models; FHS uses all standardised residuals since January 2014; GARCH parameters refitted
+   every 21 days.
+10. **The ES test is weak.** It is a one-sided t-test on the exceedance days and only detects ES
+    that is too small; an ES that is too large shows only in the ratio.
 11. **Real-time regime labels lag.** The label uses only earlier TASI sessions, so the first day
     of a shock arriving from calm conditions is labelled calm. The turbulent regime measures how
     models behave once turbulence is visible, not at its onset.
-12. **The turbulent sample is small.** 217 TASI-turbulent test days and 8 turbulent months; regime
-    splits of the 99% results rest on single-digit exceedance counts.
+12. **Regime splits are still thin at 99%.** 760 TASI-turbulent test days and 38 turbulent blocks;
+    the 99% turbulent results rest on 8–24 breaches per model.
 13. **Stress episodes are chosen with hindsight** (worst windows in the data). That is intended for
-    a replay, but they are not a forecast of the next crisis. The 2014–16 decline is replayed on
-    TASI only, and on today's portfolio only through a linear beta; the stocks themselves have no
-    usable data then. The 2019 Abqaiq attack falls before the stock sample and is not studied.
+    a replay, but they are not a forecast of the next crisis. The 2019 Abqaiq attack is in the
+    sample but is not among the worst windows and is not studied separately.
 14. **Episode labels are annotations.** The "context" column summarises widely reported events and
-    is not tested against the data; two episodes are left unexplained rather than guessed.
-15. **Oil betas are unstable and linear.** Brent explains about 9% of weekly portfolio variance, the
-    same oil shock produced very different equity moves, and front-month futures have roll jumps.
-16. **Allocation test simplifications.** No weight caps (portfolios concentrate in about 5 stocks),
-    costs are commission only, no taxes or Zakat, no cash or risk-free rate, and only 66 rebalances.
+    is not tested against the data.
+15. **Oil betas are unstable and linear.** Brent explains about 8–10% of weekly variance, the same
+    oil shock produced very different equity moves, and front-month futures have roll jumps.
+16. **Allocation test simplifications.** No weight caps (portfolios concentrate in 5–6 stocks),
+    costs are commission only, no taxes or Zakat, no cash or risk-free rate.
 17. **Price index vs total return.** TASI excludes dividends, so all benchmark comparisons use
-    price returns. Saudi dividend yields are high (about 3.4 points a year for the equal-weight
+    price returns. Saudi dividend yields are high (about 3.3 points a year for the equal-weight
     portfolio here), so comparing a total-return portfolio with TASI would overstate it.
 18. **Annualisation.** Daily statistics are annualised with the number of observations per
-    calendar year (about 240), not the usual 250, because returns that span sessions Yahoo lacks
-    still cover real time (limitation 3). An earlier version used 250 and overstated Phase 1 and 6
-    annualised figures by about 4% (returns) and 2% (volatility). The axis of the Phase 2 chart
-    of forecast vs realised volatility still uses 250; it is display only and no reported number
-    depends on it.
+    calendar year (about 241), not the usual 250, because returns that span sessions Yahoo lacks
+    still cover real time (limitation 3). The axis of the Phase 2 chart of forecast vs realised
+    volatility still uses 250; it is display only and no reported number depends on it.
 19. **One TASI source.** The TASI file is a single static export from the Saudi Exchange. It passes
     the schema and range checks above, but was not cross-checked against a second source.
+
+## License
+
+Code: MIT (see `LICENSE`). The TASI data file remains the property of the Saudi Exchange (see Data).

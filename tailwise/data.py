@@ -8,19 +8,22 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
 PROC = ROOT / "data" / "processed"
 
-START = "2019-12-11"  # Saudi Aramco's first trading day
+START = "2014-01-01"  # 2014-16 oil-price decline included; Yahoo data before mid-2013 is unusable
 END = "2026-10-20"  # last session in the TASI file: a later --refresh reproduces this sample, not a longer one
-WARMUP_START = "2019-06-01"  # extra history so the trailing-volume median exists at START
+WARMUP_START = "2013-12-01"  # a prior close, so the spike rule can judge the first sample day
 LIMIT = 0.10  # Tadawul daily price limit
 # Saudi Exchange official TASI daily history: a price index (no dividends reinvested)
 TASI_FILE = RAW / "TASI_daily_close_2013-01-01_to_2026-10-20.csv"
 
+# Listed and usable on Yahoo for the whole sample. Left out: Saudi Aramco (listed 2019-12-11), Saudi National
+# Bank (listed 2014-11-12), Yansab and Mobily (Yahoo has zero-volume filler for Apr-Oct 2015 and Jun-Jul 2015),
+# Zain KSA (capital reductions in 2015 and 2018 that Yahoo does not adjust: +66% and -38% one-day "returns").
 UNIVERSE = {
-    "2222.SR": "Saudi Aramco", "2010.SR": "SABIC", "2020.SR": "SABIC Agri-Nutrients", "2310.SR": "Sipchem",
-    "2350.SR": "Saudi Kayan", "2290.SR": "Yansab", "1211.SR": "Ma'aden",
-    "1120.SR": "Al Rajhi Bank", "1180.SR": "Saudi National Bank", "1010.SR": "Riyad Bank",
-    "1060.SR": "Saudi Awwal Bank", "1150.SR": "Alinma Bank", "1140.SR": "Bank Albilad", "1080.SR": "Arab National Bank",
-    "7010.SR": "stc", "7020.SR": "Mobily", "7030.SR": "Zain KSA", "5110.SR": "Saudi Electricity",
+    "2010.SR": "SABIC", "2020.SR": "SABIC Agri-Nutrients", "2310.SR": "Sipchem", "2350.SR": "Saudi Kayan",
+    "1211.SR": "Ma'aden",
+    "1120.SR": "Al Rajhi Bank", "1010.SR": "Riyad Bank", "1060.SR": "Saudi Awwal Bank", "1150.SR": "Alinma Bank",
+    "1140.SR": "Bank Albilad", "1080.SR": "Arab National Bank",
+    "7010.SR": "stc", "5110.SR": "Saudi Electricity",
     "2280.SR": "Almarai", "4190.SR": "Jarir", "4002.SR": "Mouwasat", "8210.SR": "Bupa Arabia",
     "4300.SR": "Dar Al Arkan", "4030.SR": "Bahri",
 }

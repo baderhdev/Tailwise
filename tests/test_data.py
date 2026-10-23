@@ -112,3 +112,12 @@ def test_panel_stops_at_end_date(monkeypatch):
     a = frame([100.0] * 10, [1] * 10)  # Jan 6 to Jan 17
     prices, rets, log = data.build_panel({"A": a})
     assert prices.index[-1] == pd.Timestamp("2020-01-10") and len(prices) == 5
+
+
+def test_every_stock_trades_before_the_sample_starts():
+    # the fixed universe has no late entrants: each stock must have Yahoo history before START
+    paths = {t: data.RAW / f"yf_{t}.csv" for t in data.UNIVERSE}
+    if not all(p.exists() for p in paths.values()):
+        pytest.skip("Yahoo cache not present; run.py --refresh downloads it")
+    for t, p in paths.items():
+        assert data.read_raw(p).index.min() < pd.Timestamp(data.START), t

@@ -69,8 +69,8 @@ def max_drawdown_dates(close):
     return peak, trough, close[trough] / close[peak] - 1
 
 
-def tasi_history(tasi_full, brent, ew_beta_latest):
-    """TASI's own worst windows since 2013, and the 2014-16 oil-price decline replayed on TASI."""
+def tasi_history(tasi_full, brent, ew_price, ew_total):
+    """TASI's own worst windows since 2013, and the 2014-16 oil-price decline: TASI, Brent and the portfolio."""
     r = tasi_full["ret"].dropna()
     eps = []
     for n in HORIZONS:
@@ -84,8 +84,9 @@ def tasi_history(tasi_full, brent, ew_beta_latest):
         tasi_peak=peak.date(), tasi_trough=trough.date(), tasi_drawdown=dd, sessions=len(close.loc[peak:trough]) - 1,
         brent_over_tasi_dates=brent.loc[:trough].iloc[-1] / brent.loc[:peak].iloc[-1] - 1,
         brent_peak=b_peak.date(), brent_trough=b_trough.date(), brent_drawdown=b_dd,
-        # hypothetical: today's portfolio through the same TASI fall, linear in the latest beta
-        ew_beta_latest=ew_beta_latest, hypothetical_ew_price_loss=-ew_beta_latest * dd)])
+        # the portfolio over the same dates: returns after the peak close, up to the trough close
+        ew_price_change=(1 + ew_price.loc[peak:trough].iloc[1:]).prod() - 1,
+        ew_total_change=(1 + ew_total.loc[peak:trough].iloc[1:]).prod() - 1)])
     return pd.DataFrame(eps), decline
 
 
@@ -123,9 +124,9 @@ def oil(prices, weights):
     ports = pd.DataFrame({p: rets.values @ w for p, w in weights.items()}, index=wk.index)
     betas = pd.DataFrame([dict(series=c, name=UNIVERSE.get(c, c), **dict(zip(["beta", "se", "r2"], beta(s.values, wk.brent.values))))
                           for c, s in pd.concat([rets, ports], axis=1).items()])
-    # TASI's oil beta before the sample (from the Sun-Thu week, July 2013) and during it
+    # TASI's oil beta in two halves of the sample: before and after December 2019
     tasi_px = pd.read_csv(PROC / "tasi_full.csv", index_col=0, parse_dates=True)[["close"]]
-    for label, a, b in [("TASI 2013-07 to 2019-12", "2013-07-01", "2019-12-10"), ("TASI sample period", START, None)]:
+    for label, a, b in [("TASI 2014-01 to 2019-12", START, "2019-12-10"), ("TASI 2019-12 to 2026-10", "2019-12-11", None)]:
         wt = weekly(tasi_px.loc[a:b], brent)
         betas.loc[len(betas)] = dict(series=label, name=f"{label} ({len(wt)} weeks)",
                                      **dict(zip(["beta", "se", "r2"], beta(wt.close.values, wt.brent.values))))
@@ -150,9 +151,8 @@ def run():
     ep.to_csv(OUT / "episodes.csv", index=False, float_format="%.4f")
     prices = pd.read_csv(PROC / "prices.csv", index_col=0, parse_dates=True)
     wk, betas, scen, oos, brent = oil(prices, weights)
-    ew_beta = rolling_beta(load_price_returns().mean(axis=1), load_tasi_returns().loc[rets.index])
     tasi_eps, decline = tasi_history(pd.read_csv(PROC / "tasi_full.csv", index_col=0, parse_dates=True),
-                                     brent, ew_beta.iloc[-1])
+                                     brent, load_price_returns().mean(axis=1), rets.mean(axis=1))
     tasi_eps.to_csv(OUT / "tasi_episodes.csv", index=False, float_format="%.4f")
     decline.to_csv(OUT / "oil_decline_2014_16.csv", index=False, float_format="%.4f")
     betas.to_csv(OUT / "oil_betas.csv", index=False, float_format="%.4f")

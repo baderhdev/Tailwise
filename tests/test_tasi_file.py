@@ -38,3 +38,7 @@ def test_no_daily_move_beyond_ten_percent(tasi):
     worst = lr.abs().idxmax()
     assert tasi.Date[worst] == pd.Timestamp("2020-03-08")
     assert lr[worst] == pytest.approx(-0.087, abs=0.001)
+
+
+def test_file_covers_the_sample(tasi):
+    assert tasi.Date.iloc[0] < pd.Timestamp(data.START) and tasi.Date.iloc[-1] == pd.Timestamp(data.END)
